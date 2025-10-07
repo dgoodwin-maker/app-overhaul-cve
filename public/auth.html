@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuthMe</title>
+    <style>
+        /* Basic Reset and Body Styling */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6; /* Light gray background for the whole page */
+            display: flex;
+            justify-content: center; /* Center the form horizontally */
+            align-items: center; /* Center the form vertically */
+            min-height: 100vh; /* Ensure the body takes up the full viewport height */
+            margin: 0;
+        }
+
+        /* Card Styling for the Form */
+        form {
+            background-color: #ffffff; /* White background for the card */
+            padding: 30px;
+            border-radius: 10px; /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+            width: 100%;
+            max-width: 400px; /* Max width for a good-looking card on desktop */
+            display: flex; /* Use flexbox for better layout control */
+            flex-direction: column;
+            gap: 15px; /* Spacing between form elements */
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        /* Label Styling */
+        label {
+            font-weight: bold;
+            color: #555;
+            display: block; /* Make label take up full width */
+            margin-bottom: 5px;
+        }
+
+        /* Input Field Styling */
+        input[type="text"],
+        input[type="password"],
+        input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Include padding/border in element's total width and height */
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        /* Focus State for Inputs */
+        input:focus {
+            border-color: #007bff; /* Highlight border on focus */
+            outline: none; /* Remove default outline */
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+
+        /* Button Styling */
+        input[type="submit"],
+        input[type="reset"] {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            color: white; /* Default text color for buttons */
+        }
+
+        /* Submit Button Specific Styling */
+        input[type="submit"] {
+            background-color: #28a745; /* Green for submit */
+        }
+
+        input[type="submit"]:hover {
+            background-color: #218838;
+        }
+
+        /* Reset Button Specific Styling */
+        input[type="reset"] {
+            background-color: #dc3545; /* Red for reset */
+            margin-right: 10px; /* Spacing between buttons */
+        }
+
+        input[type="reset"]:hover {
+            background-color: #c82333;
+        }
+
+        /* Grouping the buttons to place them side-by-side */
+        .button-group {
+            display: flex;
+            justify-content: space-between; /* Space out the buttons */
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <form action="/register" method="post"> 
+        <h2>AuthMe Registration</h2>
+
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" placeholder="Enter your username" required>
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" minlength="5" maxlength="10" placeholder="Minimum 5 characters" required>
+
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" placeholder="email@example.com" required>
+
+        <div class="button-group">
+            <input type="reset" value="Clear Form">
+            <input type="submit" value="Register">
+        </div>
+    </form>
+</body>
+</html>

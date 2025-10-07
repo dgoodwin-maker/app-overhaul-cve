@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVE Data Entry</title>
+    <style>
+        /* (The CSS is omitted here for brevity but remains the same) */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center; 
+            align-items: flex-start; 
+            gap: 40px; 
+            min-height: 100vh;
+        }
+
+        .column {
+            width: 100%;
+            max-width: 500px; 
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 20px; 
+        }
+        
+        .card-title {
+            margin-top: 0;
+            margin-bottom: 24px;
+            text-align: center;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="date"],
+        input[type="number"],
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .cve-item {
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 5px solid #007bff; 
+            border-radius: 4px;
+            transition: box-shadow 0.2s ease;
+        }
+        .cve-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+        }
+        .cve-item p {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+        .cve-item strong {
+            display: inline-block;
+            min-width: 100px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="column">
+        <div class="card">
+            <h2 class="card-title">CVE Data Entry</h2>
+            
+            <form id="data-form">
+                
+                <div class="form-group">
+                    <label for="cveName">CVE Name (CVE-YYYY-NNNNN):</label>
+                    <input 
+                        id="cveName" 
+                        type="text" 
+                        placeholder="e.g., CVE-2023-12345" 
+                        required
+                        pattern="^CVE-\d{4}-\d{4,7}$" 
+                        title="Format must be CVE-YYYY-NNNNN, where YYYY is the year and NNNNN is a sequential number (4 to 7 digits)."
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="cveDate">CVE Date:</label>
+                    <input id="cveDate" type="date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="cveDescription">CVE Description:</label>
+                    <textarea id="cveDescription" rows="4"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cveSeverity">CVE Severity (0 - 10.0):</label>
+                    <input type="number" id="cveSeverity" step="0.1" min="0.0" max="10.0" placeholder="e.g., 7.5" required>
+                </div>
+
+                <button type="submit" class="btn">Submit</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="column">
+        <div class="card">
+            <h2 class="card-title">Submitted CVEs</h2>
+            <div id="cve-list">
+                </div>
+        </div>
+    </div>
+
+<script type="module">
+    // 1. IMPORT the sample data from the external file
+    import { cveSamples } from '../samples.mjs';
+
+    // Get references to the form and the display area
+    const form = document.getElementById('data-form');
+    const cveList = document.getElementById('cve-list');
+
+    // Helper function to create and display a CVE item
+    function displayCveItem(data) {
+        const newItem = document.createElement('div');
+        newItem.classList.add('card', 'cve-item');
+
+        newItem.innerHTML = `
+            <p><strong>Name:</strong> ${data.cveName}</p>
+            <p><strong>Date:</strong> ${data.cveDate}</p>
+            <p><strong>Severity:</strong> ${data.cveSeverity}</p>
+            <p><strong>Description:</strong> ${data.cveDescription || 'N/A'}</p>
+        `;
+        cveList.prepend(newItem);
+    }
+
+    // 2. Load Samples on Page Load
+    document.addEventListener('DOMContentLoaded', () => {
+        // Display samples in reverse order so the newest sample is on top
+        cveSamples.slice().reverse().forEach(displayCveItem);
+    });
+
+    // 3. Handle New Form Submissions
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const newSubmissionData = {
+            cveName: document.getElementById('cveName').value,
+            cveDate: document.getElementById('cveDate').value,
+            cveDescription: document.getElementById('cveDescription').value,
+            cveSeverity: document.getElementById('cveSeverity').value
+        };
+
+        // Display the newly submitted item
+        displayCveItem(newSubmissionData);
+
+        // Clear the form
+        form.reset();
+    });
+</script>
+
+</body>
+</html>
