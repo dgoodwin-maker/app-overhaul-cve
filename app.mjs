@@ -1,12 +1,10 @@
 // app.mjs - Consolidated Backend Server (Routing + Model Logic)
-
+import 'dotenv/config';
 import express from 'express';
-import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
-import path from 'path';
 import { fileURLToPath } from 'url';
-import 'dotenv/config'; // Loads environment variables from .env
+import path from 'path';
+import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 
-// --- SETUP ---
 const app = express();
 const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
@@ -27,12 +25,11 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
-let db; // Global variable to hold the connected database instance
 
+let db;
 async function connectToMongo() {
     try {
         await client.connect();
-        // NOTE: If you are using MongoDB Atlas, cve_database is the name of the database that will be created
         db = client.db("cve_database"); 
         console.log("Connected successfully to MongoDB cluster");
     } catch (e) {
