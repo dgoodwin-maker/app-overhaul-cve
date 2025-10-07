@@ -1,7 +1,7 @@
 // app.mjs - Consolidated Backend Server (Routing + Model Logic)
 
 import express from 'express';
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import 'dotenv/config'; // Loads environment variables from .env
