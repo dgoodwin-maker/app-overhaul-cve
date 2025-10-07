@@ -1,12 +1,12 @@
 // app.mjs - Consolidated Backend Server (Routing + Model Logic)
-import 'dotenv/config';
+//import 'dotenv/config';
 import express from 'express';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
+//import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 
 const app = express();
-const port = process.env.PORT || 3000;
+//const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PUBLIC_PATH = path.join(__dirname,'public');
@@ -17,28 +17,28 @@ app.use(express.json()); // To parse JSON payloads (for API calls)
 app.use(express.static(PUBLIC_PATH)); // Serve static files (auth.html, cve.html, etc.)
 
 // --- MONGODB CONNECTION ---
-const uri = process.env.MONGODB_URI;
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  }
-});
+// const uri = process.env.MONGODB_URI;
+// const client = new MongoClient(uri, {
+//   serverApi: {
+//     version: ServerApiVersion.v1,
+//     strict: true,
+//     deprecationErrors: true,
+//   }
+// });
 
-let db;
-async function connectToMongo() {
-    try {
-        await client.connect();
-        db = client.db("cve_database"); 
-        console.log("Connected successfully to MongoDB cluster");
-    } catch (e) {
-        console.error("Could not connect to MongoDB:", e);
-        // Exit process on connection failure
-        process.exit(1);
-    }
-}
-connectToMongo();
+// let db;
+// async function connectToMongo() {
+//     try {
+//         await client.connect();
+//         db = client.db("cve_database"); 
+//         console.log("Connected successfully to MongoDB cluster");
+//     } catch (e) {
+//         console.error("Could not connect to MongoDB:", e);
+//         // Exit process on connection failure
+//         process.exit(1);
+//     }
+// }
+// connectToMongo();
 
 // Helper function to validate vulnerability data (Model Logic)
 const validateVulnerability = (data) => {
