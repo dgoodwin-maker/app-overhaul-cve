@@ -11,7 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PUBLIC_PATH = path.join(__dirname, 'src', 'public');
+const PUBLIC_PATH = path.join(__dirname,'public');
 
 // Middleware
 app.use(express.urlencoded({ extended: true })); // To parse form data (for /register)
