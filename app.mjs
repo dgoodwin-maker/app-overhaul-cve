@@ -1,8 +1,9 @@
 // app.mjs - Consolidated Backend Server (Routing + Model Logic)
-// NOTE: This version uses in-memory storage (no MongoDB)
 import express from 'express';
 import { fileURLToPath } from 'url';
 import path from 'path';
+// Import initial data from the samples.mjs file
+import { initialCveData } from './samples.mjs'; 
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,10 +12,10 @@ const __dirname = path.dirname(__filename);
 const PUBLIC_PATH = path.join(__dirname,'public');
 
 // --- IN-MEMORY DATA STORE & COUNTER ---
-// Simulate a database collection using a simple array
-let vulnerabilitiesData = [];
-// Counter for unique IDs, replacing MongoDB's ObjectId
-let nextId = 1; 
+// Initialize the array with the imported sample data
+let vulnerabilitiesData = [...initialCveData]; 
+// Set nextId to be one more than the last ID in the sample data
+let nextId = vulnerabilitiesData.length > 0 ? Math.max(...vulnerabilitiesData.map(v => v._id)) + 1 : 1; 
 
 // Middleware
 app.use(express.urlencoded({ extended: true })); // To parse form data (for /register)
@@ -23,7 +24,8 @@ app.use(express.static(PUBLIC_PATH)); // Serve static files (auth.html, cve.html
 
 // Helper function to validate vulnerability data (Model Logic)
 const validateVulnerability = (data) => {
-    const { name, severity, description } = data;
+    // Note: The client uses 'severity' as a string, parseFloat converts it
+    const { name, severity, description } = data; 
     if (!name || !severity || !description) {
         return null;
     }
@@ -32,7 +34,8 @@ const validateVulnerability = (data) => {
         severity: parseFloat(severity),
         description: description.trim(),
         status: data.status || 'Pending',
-        dateLogged: data.dateLogged || new Date().toISOString(), // Use ISO string for consistency
+        // Use provided date or current date
+        dateLogged: data.dateLogged || new Date().toISOString(), 
     };
 };
 
@@ -43,16 +46,14 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(PUBLIC_PATH, 'auth.html'));
 });
 
-// 2. Handle Registration Submission (Simplified: No actual user storage)
+// 2. Handle Registration Submission (Simplified)
 app.post('/register', async (req, res) => {
-    // In-memory data store is only for vulnerabilities, so we just check for fields
     const { username, password, email } = req.body;
 
     if (!username || !password || !email) {
         return res.status(400).send("All fields are required.");
     }
     
-    // Log and redirect (without actual registration logic)
     console.log(`Simulated User registered: ${username}`);
     res.redirect('/cve.html');
 });
@@ -67,7 +68,8 @@ app.get('/cve.html', (req, res) => {
 // GET: /api/vulnerabilities - Read all vulnerabilities
 app.get('/api/vulnerabilities', async (req, res) => {
     // Return all data, sorted by dateLogged (descending)
-    const sortedData = vulnerabilitiesData.sort((a, b) => new Date(b.dateLogged) - new Date(a.dateLogged));
+    // Create a copy before sorting to avoid modifying the original array order on subsequent requests
+    const sortedData = [...vulnerabilitiesData].sort((a, b) => new Date(b.dateLogged) - new Date(a.dateLogged));
     res.status(200).json(sortedData);
 });
 
@@ -96,8 +98,7 @@ app.put('/api/vulnerabilities/:id', async (req, res) => {
         return res.status(400).send({ message: "Invalid data submitted." });
     }
     
-    // Remove dateLogged so it isn't overwritten (or status if you prefer)
-    delete validatedData.dateLogged; 
+    delete validatedData.dateLogged; // Prevent overwriting the creation date
 
     // Find the index of the vulnerability
     const index = vulnerabilitiesData.findIndex(v => v._id === id);
@@ -108,8 +109,8 @@ app.put('/api/vulnerabilities/:id', async (req, res) => {
     
     // Update the existing object with new data
     vulnerabilitiesData[index] = {
-        ...vulnerabilitiesData[index], // Keep old properties like dateLogged
-        ...validatedData             // Apply updates
+        ...vulnerabilitiesData[index], 
+        ...validatedData             
     };
 
     res.status(200).send({ message: "Vulnerability updated successfully." });

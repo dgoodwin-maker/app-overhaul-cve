@@ -142,14 +142,11 @@
         <div class="card">
             <h2 class="card-title">Submitted CVEs</h2>
             <div id="cve-list">
-                </div>
+            </div>
         </div>
     </div>
 
-<script type="module">
-    // 1. IMPORT the sample data from the external file
-    import { cveSamples } from '../samples.mjs';
-
+<script>
     // Get references to the form and the display area
     const form = document.getElementById('data-form');
     const cveList = document.getElementById('cve-list');
@@ -159,37 +156,82 @@
         const newItem = document.createElement('div');
         newItem.classList.add('card', 'cve-item');
 
+        // IMPORTANT: Use the server's property names: name, dateLogged, severity, description
         newItem.innerHTML = `
-            <p><strong>Name:</strong> ${data.cveName}</p>
-            <p><strong>Date:</strong> ${data.cveDate}</p>
-            <p><strong>Severity:</strong> ${data.cveSeverity}</p>
-            <p><strong>Description:</strong> ${data.cveDescription || 'N/A'}</p>
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Date:</strong> ${new Date(data.dateLogged).toLocaleDateString()}</p>
+            <p><strong>Severity:</strong> ${data.severity}</p>
+            <p><strong>Description:</strong> ${data.description || 'N/A'}</p>
         `;
-        cveList.prepend(newItem);
+        cveList.prepend(newItem); // prepend adds it to the top (newest first)
     }
 
-    // 2. Load Samples on Page Load
-    document.addEventListener('DOMContentLoaded', () => {
-        // Display samples in reverse order so the newest sample is on top
-        cveSamples.slice().reverse().forEach(displayCveItem);
-    });
+    // Function: Load data from the server
+    async function loadVulnerabilities() {
+        try {
+            // Fetch data from the server's API endpoint
+            const response = await fetch('/api/vulnerabilities');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const vulnerabilities = await response.json();
+            
+            // Clear the list before reloading
+            cveList.innerHTML = ''; 
+            
+            // Display all items fetched from the server
+            vulnerabilities.forEach(displayCveItem);
+            
+        } catch (error) {
+            console.error('Error fetching vulnerabilities:', error);
+            cveList.innerHTML = '<p style="color: red;">Failed to load data from server.</p>';
+        }
+    }
 
-    // 3. Handle New Form Submissions
-    form.addEventListener('submit', function(event) {
+    // 2. Load Data on Page Load
+    document.addEventListener('DOMContentLoaded', loadVulnerabilities);
+
+    // 3. Handle New Form Submissions (POST to the server)
+    form.addEventListener('submit', async function(event) {
         event.preventDefault();
 
+        // 1. Collect and map the client-side names to the server-side names
         const newSubmissionData = {
-            cveName: document.getElementById('cveName').value,
-            cveDate: document.getElementById('cveDate').value,
-            cveDescription: document.getElementById('cveDescription').value,
-            cveSeverity: document.getElementById('cveSeverity').value
+            name: document.getElementById('cveName').value,
+            // The server can use this to set the dateLogged property
+            dateLogged: document.getElementById('cveDate').value, 
+            description: document.getElementById('cveDescription').value,
+            severity: document.getElementById('cveSeverity').value
         };
 
-        // Display the newly submitted item
-        displayCveItem(newSubmissionData);
+        try {
+            // 2. POST the data to the server
+            const response = await fetch('/api/vulnerabilities', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newSubmissionData)
+            });
 
-        // Clear the form
-        form.reset();
+            if (!response.ok) {
+                // Read the error message from the server if available
+                const errorData = await response.json(); 
+                throw new Error(errorData.message || 'Failed to submit vulnerability.');
+            }
+
+            // 3. Get the item back (including the new ID, date, status)
+            const createdItem = await response.json();
+
+            // 4. Display the newly created item
+            displayCveItem(createdItem);
+
+            // 5. Clear the form
+            form.reset();
+        } catch (error) {
+            console.error('Submission error:', error);
+            alert('Failed to submit CVE data: ' + error.message);
+        }
     });
 </script>
 
