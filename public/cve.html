@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CVE Data Entry</title>
     <style>
-        /* (The CSS is omitted here for brevity but remains the same) */
+        /* (CSS styles remain the same for brevity) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: #f4f7f6;
@@ -70,11 +70,36 @@
             font-size: 16px;
             cursor: pointer;
             transition: background-color 0.2s;
+            margin-top: 10px; /* Added spacing for buttons */
         }
 
         .btn:hover {
             background-color: #0056b3;
         }
+
+        /* NEW STYLES FOR ACTION BUTTONS */
+        .cve-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .action-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .edit-btn {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        /* END NEW STYLES */
 
         .cve-item {
             border: 1px solid #e0e0e0;
@@ -153,33 +178,45 @@
 
     // Helper function to create and display a CVE item
     function displayCveItem(data) {
-        const newItem = document.createElement('div');
-        newItem.classList.add('card', 'cve-item');
+        // Find the existing element if updating, otherwise create a new one
+        let newItem = document.getElementById(`cve-item-${data._id}`);
+        const isUpdate = !!newItem;
 
-        // IMPORTANT: Use the server's property names: name, dateLogged, severity, description
+        if (!newItem) {
+            newItem = document.createElement('div');
+            newItem.id = `cve-item-${data._id}`; // Set a unique ID for easy reference/update
+            newItem.classList.add('card', 'cve-item');
+        }
+
         newItem.innerHTML = `
             <p><strong>Name:</strong> ${data.name}</p>
             <p><strong>Date:</strong> ${new Date(data.dateLogged).toLocaleDateString()}</p>
             <p><strong>Severity:</strong> ${data.severity}</p>
             <p><strong>Description:</strong> ${data.description || 'N/A'}</p>
+            
+            <div class="cve-actions">
+                <button class="action-btn edit-btn" data-id="${data._id}" data-name="${data.name}" data-severity="${data.severity}" data-description="${data.description}">Edit</button>
+                <button class="action-btn delete-btn" data-id="${data._id}">Delete</button>
+            </div>
         `;
-        cveList.prepend(newItem); // prepend adds it to the top (newest first)
+
+        if (!isUpdate) {
+            cveList.prepend(newItem); // Only prepend for new items
+        } else {
+            // If it's an update, the element is already in the list, no need to re-add.
+        }
     }
 
     // Function: Load data from the server
     async function loadVulnerabilities() {
         try {
-            // Fetch data from the server's API endpoint
             const response = await fetch('/api/vulnerabilities');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const vulnerabilities = await response.json();
             
-            // Clear the list before reloading
             cveList.innerHTML = ''; 
-            
-            // Display all items fetched from the server
             vulnerabilities.forEach(displayCveItem);
             
         } catch (error) {
@@ -188,49 +225,138 @@
         }
     }
 
-    // 2. Load Data on Page Load
-    document.addEventListener('DOMContentLoaded', loadVulnerabilities);
+    // --- CRUD OPERATIONS ---
 
-    // 3. Handle New Form Submissions (POST to the server)
+    // EDIT function
+    async function handleEdit(id, currentName, currentSeverity, currentDescription) {
+        // Use prompt for a simple inline edit of severity/description
+        const newSeverity = prompt(`Enter new Severity (0-10.0) for ${currentName}:`, currentSeverity);
+        if (newSeverity === null || isNaN(parseFloat(newSeverity))) {
+            if (newSeverity !== null) alert("Invalid severity. Edit cancelled.");
+            return; // Cancelled
+        }
+        
+        const newDescription = prompt(`Enter new Description for ${currentName}:`, currentDescription);
+        if (newDescription === null) return; // Cancelled
+
+        try {
+            const response = await fetch(`/api/vulnerabilities/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    name: currentName, // Name usually shouldn't change
+                    severity: newSeverity,
+                    description: newDescription 
+                })
+            });
+
+            if (!response.ok) {
+                 const errorData = await response.json(); 
+                 throw new Error(errorData.message || 'Failed to update CVE.');
+            }
+            
+            // Success: Update the client-side display without a full reload
+            const updatedData = {
+                _id: id,
+                name: currentName,
+                severity: newSeverity,
+                description: newDescription,
+                // These will be missing, but displayCveItem handles them
+                dateLogged: 'N/A', 
+            };
+            displayCveItem(updatedData);
+            alert(`CVE ${currentName} updated successfully!`);
+
+        } catch (error) {
+            console.error('Update error:', error);
+            alert('Failed to update CVE data: ' + error.message);
+        }
+    }
+
+    // DELETE function
+    async function handleDelete(id, name) {
+        if (!confirm(`Are you sure you want to delete CVE ${name}?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/vulnerabilities/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (response.status !== 204) {
+                // If it's not a 204 No Content, something went wrong
+                // The server should return a 404 or a 400 with a message
+                 const errorData = response.status !== 404 ? await response.json() : { message: 'Vulnerability not found.' };
+                 throw new Error(errorData.message || `Failed to delete CVE ${name}.`);
+            }
+            
+            // Success: Remove the item from the DOM
+            const itemToRemove = document.getElementById(`cve-item-${id}`);
+            if (itemToRemove) {
+                itemToRemove.remove();
+            }
+            alert(`CVE ${name} deleted successfully.`);
+
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('Failed to delete CVE data: ' + error.message);
+        }
+    }
+
+
+    // --- EVENT LISTENERS ---
+
+    // 1. Load Data on Page Load
+    document.addEventListener('DOMContentLoaded', loadVulnerabilities);
+    
+    // 2. Handle Form Submission (POST to the server)
     form.addEventListener('submit', async function(event) {
         event.preventDefault();
 
-        // 1. Collect and map the client-side names to the server-side names
         const newSubmissionData = {
             name: document.getElementById('cveName').value,
-            // The server can use this to set the dateLogged property
             dateLogged: document.getElementById('cveDate').value, 
             description: document.getElementById('cveDescription').value,
             severity: document.getElementById('cveSeverity').value
         };
 
         try {
-            // 2. POST the data to the server
             const response = await fetch('/api/vulnerabilities', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newSubmissionData)
             });
 
             if (!response.ok) {
-                // Read the error message from the server if available
                 const errorData = await response.json(); 
                 throw new Error(errorData.message || 'Failed to submit vulnerability.');
             }
 
-            // 3. Get the item back (including the new ID, date, status)
             const createdItem = await response.json();
-
-            // 4. Display the newly created item
             displayCveItem(createdItem);
-
-            // 5. Clear the form
             form.reset();
         } catch (error) {
             console.error('Submission error:', error);
             alert('Failed to submit CVE data: ' + error.message);
+        }
+    });
+
+    // 3. Handle Edit/Delete Button Clicks (Event Delegation)
+    cveList.addEventListener('click', (event) => {
+        const target = event.target;
+        
+        if (target.classList.contains('edit-btn')) {
+            const id = parseInt(target.dataset.id);
+            const name = target.dataset.name;
+            const severity = target.dataset.severity;
+            const description = target.dataset.description;
+            handleEdit(id, name, severity, description);
+        } else if (target.classList.contains('delete-btn')) {
+            const id = parseInt(target.dataset.id);
+            // We need the name for the confirmation prompt, so we fetch it from the same button's dataset
+            const name = target.parentElement.querySelector('.edit-btn').dataset.name;
+            handleDelete(id, name);
         }
     });
 </script>
