@@ -147,101 +147,208 @@
     </div>
 
 <script>
-    // Get references to the form and the display area
     const form = document.getElementById('data-form');
     const cveList = document.getElementById('cve-list');
 
     // Helper function to create and display a CVE item
     function displayCveItem(data) {
-        // NOTE: The server API returns fields as 'name', 'severity', 'description', 'dateLogged'
-        // Your form uses 'cveName', 'cveSeverity', etc.
+        // Map form fields/samples to API/DB fields
         const name = data.name || data.cveName;
-        const date = data.dateLogged ? new Date(data.dateLogged).toLocaleDateString() : data.cveDate;
+        // Format the date for display
+        const dateRaw = data.dateLogged || data.cveDate;
+        const dateDisplay = dateRaw ? new Date(dateRaw).toLocaleDateString() : 'N/A';
         const severity = data.severity || data.cveSeverity;
         const description = data.description || data.cveDescription || 'N/A';
-        const status = data.status || 'N/A';
-        const id = data._id; // Get the MongoDB ID for potential future use (edit/delete)
+        const status = data.status || 'Pending'; // Default to Pending if not specified
+        const id = data._id; 
 
         const newItem = document.createElement('div');
         newItem.classList.add('card', 'cve-item');
-        // Optionally show the status and ID for completeness
+        newItem.setAttribute('data-id', id); // Store the ID on the element
+
         newItem.innerHTML = `
             <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Date:</strong> ${date}</p>
+            <p><strong>Date:</strong> ${dateDisplay}</p>
             <p><strong>Severity:</strong> ${severity}</p>
             <p><strong>Status:</strong> ${status}</p>
             <p><strong>Description:</strong> ${description}</p>
-            <p style="font-size: 0.7em; color: #aaa;">ID: ${id || 'N/A'}</p>
+            <div class="actions" style="margin-top: 15px; display: flex; gap: 10px;">
+                <button class="edit-btn" data-id="${id}" 
+                        data-name="${name}" 
+                        data-date="${dateRaw}"
+                        data-severity="${severity}"
+                        data-description="${description}"
+                        >Edit</button>
+                <button class="delete-btn" data-id="${id}">Delete</button>
+            </div>
+            <p style="font-size: 0.7em; color: #aaa; margin-top: 10px;">ID: ${id || 'N/A'}</p>
         `;
         cveList.prepend(newItem);
     }
 
-    // New function to fetch all CVEs from the server API
+    // --- API & Core Functions ---
+
+    // Load all CVEs from the server API
     async function loadCves() {
         cveList.innerHTML = ''; // Clear existing list
         try {
-            // CALL YOUR SERVER'S API ENDPOINT
             const response = await fetch('/api/vulnerabilities'); 
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
             const cves = await response.json();
-            
             // Display fetched CVEs (they are already sorted by dateLogged in app.mjs)
             cves.forEach(displayCveItem);
-
         } catch (error) {
             console.error("Error loading CVEs:", error);
             cveList.innerHTML = '<p style="color: red;">Failed to load submitted CVEs.</p>';
         }
     }
 
-    // 2. Load CVEs on Page Load from the API
-    document.addEventListener('DOMContentLoaded', loadCves);
-
-    // 3. Handle New Form Submissions (and send data to the server)
-    form.addEventListener('submit', async function(event) { // Make the function async
-        event.preventDefault();
-
-        const newSubmissionData = {
-            // NOTE: The form names (cveName, cveSeverity, etc.) must be mapped 
-            // to the database/API model names ('name', 'severity', etc.)
-            name: document.getElementById('cveName').value,
-            dateLogged: document.getElementById('cveDate').value, // Send as dateLogged for server
-            description: document.getElementById('cveDescription').value,
-            severity: parseFloat(document.getElementById('cveSeverity').value),
-            status: 'Pending' // Default status
-        };
+    // Function to handle the DELETE request
+    async function deleteCve(id) {
+        if (!confirm(`Are you sure you want to delete CVE with ID: ${id}?`)) {
+            return;
+        }
 
         try {
-            // POST data to the server's API endpoint
-            const response = await fetch('/api/vulnerabilities', {
-                method: 'POST',
+            const response = await fetch(`/api/vulnerabilities/${id}`, {
+                method: 'DELETE',
+            });
+
+            if (response.status === 204) { // 204 No Content for successful deletion
+                // Remove the item from the DOM
+                const itemToRemove = document.querySelector(`.cve-item[data-id="${id}"]`);
+                if (itemToRemove) {
+                    itemToRemove.remove();
+                    alert(`CVE ${id} deleted successfully!`);
+                }
+            } else if (response.status === 404) {
+                 alert('Error: CVE not found.');
+            } else {
+                throw new Error('Deletion failed on the server.');
+            }
+        } catch (error) {
+            console.error("Error deleting CVE:", error);
+            alert("Failed to delete CVE data.");
+        }
+    }
+    
+    // Function to handle the PUT (Edit) request
+    async function updateCve(id, updatedData) {
+        try {
+            const response = await fetch(`/api/vulnerabilities/${id}`, {
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(newSubmissionData)
+                body: JSON.stringify(updatedData)
             });
 
             if (!response.ok) {
-                throw new Error('Submission failed on the server.');
+                const errorText = await response.json();
+                throw new Error(`Update failed: ${errorText.message}`);
             }
 
-            // Get the newly created object (which includes the MongoDB _id)
-            const createdCve = await response.json(); 
-
-            // Display the newly submitted item without needing to reload all data
-            displayCveItem(createdCve);
-
-            // Clear the form
-            form.reset();
-            
-            alert(`CVE ${createdCve.name} submitted successfully!`);
+            alert('CVE updated successfully! Refreshing list...');
+            // Reload all CVEs to show the updated data
+            loadCves(); 
 
         } catch (error) {
-            console.error("Error submitting CVE:", error);
-            alert("Failed to submit CVE data.");
+            console.error("Error updating CVE:", error);
+            alert("Failed to update CVE data: " + error.message);
         }
+    }
+    
+    // Function to pre-fill the form for editing
+    function handleEditClick(event) {
+        const button = event.target;
+        const id = button.getAttribute('data-id');
+        
+        // Populate the form fields with the item's data attributes
+        document.getElementById('cveName').value = button.getAttribute('data-name');
+        document.getElementById('cveDate').value = button.getAttribute('data-date');
+        document.getElementById('cveSeverity').value = button.getAttribute('data-severity');
+        document.getElementById('cveDescription').value = button.getAttribute('data-description');
+        
+        // Change the form button to 'Update' and store the ID
+        const submitButton = form.querySelector('.btn');
+        submitButton.textContent = 'Update';
+        submitButton.setAttribute('data-mode', 'edit');
+        submitButton.setAttribute('data-id', id);
+        
+        // Scroll to the top of the form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    // --- Event Listeners ---
+
+    // 1. Initial Load from the API
+    document.addEventListener('DOMContentLoaded', loadCves);
+    
+    // 2. Event listener for the delete and edit buttons (using event delegation)
+    cveList.addEventListener('click', (event) => {
+        const id = event.target.getAttribute('data-id');
+        
+        if (event.target.classList.contains('delete-btn')) {
+            deleteCve(id);
+        } else if (event.target.classList.contains('edit-btn')) {
+            handleEditClick(event);
+        }
+    });
+
+    // 3. Handle Form Submission (POST for New, PUT for Edit/Update)
+    form.addEventListener('submit', async function(event) { 
+        event.preventDefault();
+
+        const submitButton = form.querySelector('.btn');
+        const mode = submitButton.getAttribute('data-mode') || 'new';
+        const id = submitButton.getAttribute('data-id');
+
+        const submissionData = {
+            // Note: Mapping form field IDs to API/DB field names
+            name: document.getElementById('cveName').value,
+            dateLogged: document.getElementById('cveDate').value,
+            description: document.getElementById('cveDescription').value,
+            severity: parseFloat(document.getElementById('cveSeverity').value),
+            // When editing, status should ideally be handled on the server, 
+            // but we can set it to Pending for new submissions
+            status: 'Pending' 
+        };
+
+        if (mode === 'edit' && id) {
+            // --- EDIT / UPDATE LOGIC (PUT) ---
+            await updateCve(id, submissionData);
+            
+            // Reset the form mode after update
+            submitButton.textContent = 'Submit';
+            submitButton.removeAttribute('data-mode');
+            submitButton.removeAttribute('data-id');
+        } else {
+            // --- NEW SUBMISSION LOGIC (POST) ---
+            try {
+                const response = await fetch('/api/vulnerabilities', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(submissionData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Submission failed on the server.');
+                }
+
+                const createdCve = await response.json(); 
+                displayCveItem(createdCve);
+                alert(`CVE ${createdCve.name} submitted successfully!`);
+
+            } catch (error) {
+                console.error("Error submitting CVE:", error);
+                alert("Failed to submit CVE data.");
+            }
+        }
+        
+        // Clear the form for both modes
+        form.reset();
     });
 </script>
 
