@@ -13,7 +13,7 @@ const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Correctly map the public folder path
-const PUBLIC_PATH = path.join(__dirname, 'public');
+const PUBLIC_PATH = path.join(__dirname, 'src', 'public');
 
 // Middleware
 app.use(express.urlencoded({ extended: true })); // To parse form data (for /register)
@@ -46,7 +46,7 @@ async function seedDatabase() {
             await collection.insertMany(cveSamples);
             console.log(`[SEEDING] Successfully inserted ${cveSamples.length} sample vulnerabilities.`);
         } else {
-            console.log(`[SEEDING] Collection is not empty (${count} items found). Skipping seeding.`);
+            console.log(`[SEEDED] Collection is not empty (${count} items found). Skipping seeding.`);
         }
     } catch (e) {
         console.error("[SEEDING] Error seeding database:", e);
@@ -110,7 +110,7 @@ app.post('/register', async (req, res) => {
         const newUser = { username, password, email, registrationDate: new Date() };
         await users.insertOne(newUser);
 
-        console.log(`User registered: ${username}`);
+        console.log(`[AUTH] User registered: ${username}`);
         
         // Redirect to the main application page
         res.redirect('/cve.html');
@@ -133,6 +133,7 @@ app.get('/api/vulnerabilities', async (req, res) => {
     try {
         // Fetch and sort by newest first
         const vulnerabilities = await db.collection(COLLECTION_NAME).find().sort({ dateLogged: -1 }).toArray();
+        console.log(`[API-READ] Successfully retrieved ${vulnerabilities.length} vulnerabilities.`);
         res.status(200).json(vulnerabilities);
     } catch (e) {
         console.error("GET error:", e);
@@ -150,6 +151,7 @@ app.post('/api/vulnerabilities', async (req, res) => {
 
     try {
         const result = await db.collection(COLLECTION_NAME).insertOne(validatedData);
+        console.log(`[API-CREATE] New vulnerability logged with ID: ${result.insertedId}`);
         // Return the full object with the new MongoDB ID
         res.status(201).json({ _id: result.insertedId, ...validatedData });
     } catch (e) {
@@ -180,6 +182,7 @@ app.put('/api/vulnerabilities/:id', async (req, res) => {
         if (result.matchedCount === 0) {
             return res.status(404).send({ message: "Vulnerability not found." });
         }
+        console.log(`[API-UPDATE] Vulnerability ID ${id} updated.`);
         res.status(200).send({ message: "Vulnerability updated successfully." });
 
     } catch (e) {
@@ -199,6 +202,7 @@ app.delete('/api/vulnerabilities/:id', async (req, res) => {
         if (result.deletedCount === 0) {
             return res.status(404).send({ message: "Vulnerability not found." });
         }
+        console.log(`[API-DELETE] Vulnerability ID ${id} deleted.`);
         // 204 No Content response for successful deletion
         res.status(204).send(); 
         
@@ -208,6 +212,10 @@ app.delete('/api/vulnerabilities/:id', async (req, res) => {
     }
 });
 
+// --- Default 404 Route Handler ---
+app.use((req, res) => {
+    res.status(404).send("404: Route Not Found");
+});
 
 // --- SERVER START ---
 app.listen(port, () => {
