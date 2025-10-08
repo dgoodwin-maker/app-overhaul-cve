@@ -12,8 +12,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Correctly map the public folder path
-const PUBLIC_PATH = path.join(__dirname, 'src', 'public');
+// FIXED: Correctly map the public folder path to the local 'public' directory.
+const PUBLIC_PATH = path.join(__dirname, 'public');
 
 // Middleware
 app.use(express.urlencoded({ extended: true })); // To parse form data (for /register)
