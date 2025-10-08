@@ -69,8 +69,9 @@ async function connectToMongo() {
 connectToMongo();
 
 // Helper function to validate vulnerability data (Model Logic)
+// app.mjs
 const validateVulnerability = (data) => {
-    const { name, severity, description } = data;
+    const { name, severity, description } = data; // <--- Expects 'name', 'severity', 'description'
     if (!name || !severity || !description) {
         return null;
     }

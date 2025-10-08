@@ -146,50 +146,102 @@
         </div>
     </div>
 
-<script type="module">
-    // 1. IMPORT the sample data from the external file
-    import { cveSamples } from '../samples.mjs';
-
+<script>
     // Get references to the form and the display area
     const form = document.getElementById('data-form');
     const cveList = document.getElementById('cve-list');
 
     // Helper function to create and display a CVE item
     function displayCveItem(data) {
+        // NOTE: The server API returns fields as 'name', 'severity', 'description', 'dateLogged'
+        // Your form uses 'cveName', 'cveSeverity', etc.
+        const name = data.name || data.cveName;
+        const date = data.dateLogged ? new Date(data.dateLogged).toLocaleDateString() : data.cveDate;
+        const severity = data.severity || data.cveSeverity;
+        const description = data.description || data.cveDescription || 'N/A';
+        const status = data.status || 'N/A';
+        const id = data._id; // Get the MongoDB ID for potential future use (edit/delete)
+
         const newItem = document.createElement('div');
         newItem.classList.add('card', 'cve-item');
-
+        // Optionally show the status and ID for completeness
         newItem.innerHTML = `
-            <p><strong>Name:</strong> ${data.cveName}</p>
-            <p><strong>Date:</strong> ${data.cveDate}</p>
-            <p><strong>Severity:</strong> ${data.cveSeverity}</p>
-            <p><strong>Description:</strong> ${data.cveDescription || 'N/A'}</p>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Date:</strong> ${date}</p>
+            <p><strong>Severity:</strong> ${severity}</p>
+            <p><strong>Status:</strong> ${status}</p>
+            <p><strong>Description:</strong> ${description}</p>
+            <p style="font-size: 0.7em; color: #aaa;">ID: ${id || 'N/A'}</p>
         `;
         cveList.prepend(newItem);
     }
 
-    // 2. Load Samples on Page Load
-    document.addEventListener('DOMContentLoaded', () => {
-        // Display samples in reverse order so the newest sample is on top
-        cveSamples.slice().reverse().forEach(displayCveItem);
-    });
+    // New function to fetch all CVEs from the server API
+    async function loadCves() {
+        cveList.innerHTML = ''; // Clear existing list
+        try {
+            // CALL YOUR SERVER'S API ENDPOINT
+            const response = await fetch('/api/vulnerabilities'); 
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const cves = await response.json();
+            
+            // Display fetched CVEs (they are already sorted by dateLogged in app.mjs)
+            cves.forEach(displayCveItem);
 
-    // 3. Handle New Form Submissions
-    form.addEventListener('submit', function(event) {
+        } catch (error) {
+            console.error("Error loading CVEs:", error);
+            cveList.innerHTML = '<p style="color: red;">Failed to load submitted CVEs.</p>';
+        }
+    }
+
+    // 2. Load CVEs on Page Load from the API
+    document.addEventListener('DOMContentLoaded', loadCves);
+
+    // 3. Handle New Form Submissions (and send data to the server)
+    form.addEventListener('submit', async function(event) { // Make the function async
         event.preventDefault();
 
         const newSubmissionData = {
-            cveName: document.getElementById('cveName').value,
-            cveDate: document.getElementById('cveDate').value,
-            cveDescription: document.getElementById('cveDescription').value,
-            cveSeverity: document.getElementById('cveSeverity').value
+            // NOTE: The form names (cveName, cveSeverity, etc.) must be mapped 
+            // to the database/API model names ('name', 'severity', etc.)
+            name: document.getElementById('cveName').value,
+            dateLogged: document.getElementById('cveDate').value, // Send as dateLogged for server
+            description: document.getElementById('cveDescription').value,
+            severity: parseFloat(document.getElementById('cveSeverity').value),
+            status: 'Pending' // Default status
         };
 
-        // Display the newly submitted item
-        displayCveItem(newSubmissionData);
+        try {
+            // POST data to the server's API endpoint
+            const response = await fetch('/api/vulnerabilities', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newSubmissionData)
+            });
 
-        // Clear the form
-        form.reset();
+            if (!response.ok) {
+                throw new Error('Submission failed on the server.');
+            }
+
+            // Get the newly created object (which includes the MongoDB _id)
+            const createdCve = await response.json(); 
+
+            // Display the newly submitted item without needing to reload all data
+            displayCveItem(createdCve);
+
+            // Clear the form
+            form.reset();
+            
+            alert(`CVE ${createdCve.name} submitted successfully!`);
+
+        } catch (error) {
+            console.error("Error submitting CVE:", error);
+            alert("Failed to submit CVE data.");
+        }
     });
 </script>
 
