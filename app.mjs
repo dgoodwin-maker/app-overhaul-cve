@@ -1,37 +1,65 @@
 // app.mjs - Consolidated Backend Server (Routing + Model Logic)
-import 'dotenv/config';
-import express from 'express';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 
+import express from 'express';
+import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import 'dotenv/config'; // Loads environment variables from .env
+import { cveSamples } from './samples.mjs'; // <-- Import sample data from root
+
+// --- SETUP ---
 const app = express();
 const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PUBLIC_PATH = path.join(__dirname,'public');
+// Correctly map the public folder path
+const PUBLIC_PATH = path.join(__dirname, 'public');
 
 // Middleware
 app.use(express.urlencoded({ extended: true })); // To parse form data (for /register)
 app.use(express.json()); // To parse JSON payloads (for API calls)
 app.use(express.static(PUBLIC_PATH)); // Serve static files (auth.html, cve.html, etc.)
 
-// --- MONGODB CONNECTION ---
+// --- MONGODB CONNECTION & SEEDING ---
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  }
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
 });
 
 let db;
+const COLLECTION_NAME = 'vulnerabilities';
+
+/**
+ * Inserts sample data into MongoDB if the collection is empty.
+ */
+async function seedDatabase() {
+    try {
+        const collection = db.collection(COLLECTION_NAME);
+        const count = await collection.countDocuments();
+
+        if (count === 0) {
+            // Data insertion uses the sample data directly
+            await collection.insertMany(cveSamples);
+            console.log(`[SEEDING] Successfully inserted ${cveSamples.length} sample vulnerabilities.`);
+        } else {
+            console.log(`[SEEDING] Collection is not empty (${count} items found). Skipping seeding.`);
+        }
+    } catch (e) {
+        console.error("[SEEDING] Error seeding database:", e);
+    }
+}
+
 async function connectToMongo() {
     try {
         await client.connect();
         db = client.db("cve_database"); 
         console.log("Connected successfully to MongoDB cluster");
+        // Run the seed function immediately after successful connection
+        await seedDatabase();
     } catch (e) {
         console.error("Could not connect to MongoDB:", e);
         // Exit process on connection failure
@@ -99,11 +127,11 @@ app.get('/cve.html', (req, res) => {
 });
 
 // --- RESTful API ENDPOINTS (CRUD Logic) ---
-const COLLECTION_NAME = 'vulnerabilities';
 
 // GET: /api/vulnerabilities - Read all vulnerabilities
 app.get('/api/vulnerabilities', async (req, res) => {
     try {
+        // Fetch and sort by newest first
         const vulnerabilities = await db.collection(COLLECTION_NAME).find().sort({ dateLogged: -1 }).toArray();
         res.status(200).json(vulnerabilities);
     } catch (e) {
@@ -122,6 +150,7 @@ app.post('/api/vulnerabilities', async (req, res) => {
 
     try {
         const result = await db.collection(COLLECTION_NAME).insertOne(validatedData);
+        // Return the full object with the new MongoDB ID
         res.status(201).json({ _id: result.insertedId, ...validatedData });
     } catch (e) {
         console.error("POST error:", e);
@@ -138,7 +167,7 @@ app.put('/api/vulnerabilities/:id', async (req, res) => {
         return res.status(400).send({ message: "Invalid data submitted." });
     }
     
-    // Remove dateLogged so it isn't overwritten
+    // Ensure we don't accidentally update the date logged on update
     delete validatedData.dateLogged; 
 
     try {
@@ -154,7 +183,6 @@ app.put('/api/vulnerabilities/:id', async (req, res) => {
         res.status(200).send({ message: "Vulnerability updated successfully." });
 
     } catch (e) {
-        // Catches issues like invalid ObjectId format
         console.error("PUT error:", e); 
         res.status(400).send({ message: "Invalid ID format or server error." });
     }
